@@ -36,6 +36,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <sys/types.h>
+#include <time.h>
 
 #include "../brocm_header/brocm_define.h"
 #include "../brocm_header/brocm_extern.h"
@@ -53,8 +54,8 @@
 // 진행률 표시 함수
 void print_progress(off_t processed, off_t total) {
     double percentage = (double)processed * 100.0 / total;
-    printf(YELLOW_COLOR "\r[encdec] Progress: %.1f%% (%lld/%lld bytes)" RESET_COLOR, 
-           percentage, (long long)processed, (long long)total);
+    printf("%s\r[encdec] Progress: %.1f%% (%lld/%lld bytes)%s", 
+           YELLOW_COLOR, percentage, (long long)processed, (long long)total, RESET_COLOR);
     fflush(stdout);
 }
 
@@ -117,6 +118,8 @@ int main(int argc, char *argv[])
 	char *password;             
 	char *input_file;           
 	char *output_file;          
+	clock_t start_time, end_time;
+	double cpu_time_used;
 
 	FILE *fp_in;                
 	FILE *fp_out;               
@@ -201,6 +204,7 @@ int main(int argc, char *argv[])
 	*	dec : salt, ctr 생성
 	*/
 	if (strcmp(mode, "enc") == 0) {
+		start_time = clock();
 		// salt 생성
 		ret = brocm_gen_rn(salt, 32);
 		if (ret != BROCM_GEN_RN_SUCCESS) {
@@ -407,8 +411,13 @@ int main(int argc, char *argv[])
 
 		printf("\n" RESET_COLOR "[encdec] File encryption completed successfully: %s -> %s (%zu bytes)\n" RESET_COLOR, 
 			   input_file, output_file, file_size);
+		
+		end_time = clock();
+		cpu_time_used = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;
+		printf(GREEN_COLOR "[encdec] Total processing time: %.2f seconds\n" RESET_COLOR, cpu_time_used);
 
 	} else {  // dec mode
+		start_time = clock();
 		// 입력 파일 열기
 		fp_in = fopen(input_file, "rb");
 		if (!fp_in) {
@@ -602,15 +611,18 @@ int main(int argc, char *argv[])
 		fclose(fp_in);
 		fclose(fp_out);
 
-		printf("\n" RESET_COLOR "[encdec] File decryption completed successfully: %s -> %s (%zu bytes)\n" RESET_COLOR, 
+		printf("\n" GREEN_COLOR "[encdec] File decryption completed successfully: %s -> %s (%zu bytes)\n" RESET_COLOR, 
 			   input_file, output_file, file_size);
+
+		end_time = clock();
+		cpu_time_used = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;
+		printf(GREEN_COLOR "[encdec] Total processing time: %.2f seconds\n" RESET_COLOR, cpu_time_used);
 	}
 
 	secure_zero_memory(password, password_len);
 	secure_zero_memory(dek, 32);
 	free(password);
-
-	printf(RESET_COLOR "[encdec] File encryption/decryption utility completed successfully\n" RESET_COLOR);
+	// printf(RESET_COLOR "[encdec] File encryption/decryption utility completed successfully\n" RESET_COLOR);
 
 	return 0;
 }

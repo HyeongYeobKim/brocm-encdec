@@ -7,6 +7,7 @@
  */
 
 #define BROCM_BLOCK_CHAR_MAX_LEN				1048576 // 1MB
+// #define BROCM_BLOCK_CHAR_MAX_LEN				4194304 // 4MB
 
 /* ==============================================
  * 블록암호 상수 정의
