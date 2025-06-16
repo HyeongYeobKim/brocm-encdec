@@ -1,7 +1,7 @@
-# BROCm (Block cipher and Random number generator Open Cryptographic Module)
+# BROCM (Block cipher and Random number generator Open Cryptographic Module)
 
 ## 프로젝트 개요
-BROCm은 2025년도 국민대학교 사이버보안학과 암호알고리즘 수업의 일환으로 개발된 암호 모듈 기반의 암복호화 프로그램입니다.
+BROCM은 2025년도 국민대학교 사이버보안학과 암호알고리즘 수업의 일환으로 개발된 암호 모듈 기반의 암복호화 프로그램입니다.
 
 ## 암호모듈에 구현된 암호 알고리즘
 
