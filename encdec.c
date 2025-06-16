@@ -1,35 +1,63 @@
+/*
+ * Copyright (c) 2024 Kookmin University
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Author: gudduq159@kookmin.ac.kr
+ * Department of Cybersecurity, Kookmin University
+ *
+ * 파일 암/복호화 처리 단위 정보
+ * ---------------------------
+ * 1. 파일 처리 단위 (File Processing Units)
+ *    - 청크 단위 (CHUNK_SIZE): 64MB (64 * 1024 * 1024 bytes)
+ *    - 메모리 버퍼 크기: CHUNK_SIZE + 정렬 패딩(31) + 여유 공간(64)
+ *    - 4GB 이상 파일: off_t 타입(64비트)으로 처리, 64MB 청크 단위로 순차 처리
+ *
+ * 2. 암호화 처리 단위 (Encryption Processing Units)
+ *    - 블록 최대 크기: BROCM_BLOCK_CHAR_MAX_LEN - 1000 bytes
+ *    - 실제 처리 크기: 32바이트 정렬 (aligned_size = (current_block + 31) & ~31)
+ *    - 암호화 입출력: 4바이트 단위(word) 처리 (byte2word/word2byte 변환)
+ *
+ * 3. 메모리 사용 (Memory Usage per Chunk)
+ *    - 원본 데이터 버퍼: CHUNK_SIZE (64MB)
+ *    - 정수 변환 버퍼: ((CHUNK_SIZE + 31) & ~31) + 64) * 2 (입력/출력용)
+ *    - 추가 메모리: salt(32B), nonce(16B), key(32B) 등
+ *
+ * 4. 파일 구조 (Encrypted File Structure)
+ *    - 헤더: salt(32B) + CTR nonce(16B) = 48B
+ *    - 데이터: 암호화된 원본 데이터
+ *
+ * 5. 키/Salt/CTR 관리 구조 (Key/Salt/CTR Management)
+ *    - 키 생성: PBKDF2-HMAC-SHA256(password, salt, 100000회)로 32바이트 DEK 생성
+ *    - Salt 관리: 파일별 32바이트 랜덤 salt 생성, 파일 헤더에 저장
+ *    - CTR Nonce: 파일별 16바이트 랜덤 nonce 생성, 파일 헤더에 저장
+ *    - 메모리 보안: 키 관련 메모리는 사용 후 secure_zero_memory()로 안전하게 삭제
+ */
+
 #define _FILE_OFFSET_BITS 64
 #define _LARGEFILE64_SOURCE
 #define _LARGEFILE_SOURCE
-
-/*
-* 파일 암/복호화 처리 단위 정보
-* ---------------------------
-* 1. 파일 처리 단위 (File Processing Units)
-*    - 청크 단위 (CHUNK_SIZE): 64MB (64 * 1024 * 1024 bytes)
-*    - 메모리 버퍼 크기: CHUNK_SIZE + 정렬 패딩(31) + 여유 공간(64)
-*    - 4GB 이상 파일: off_t 타입(64비트)으로 처리, 64MB 청크 단위로 순차 처리
-*
-* 2. 암호화 처리 단위 (Encryption Processing Units)
-*    - 블록 최대 크기: BROCM_BLOCK_CHAR_MAX_LEN - 1000 bytes
-*    - 실제 처리 크기: 32바이트 정렬 (aligned_size = (current_block + 31) & ~31)
-*    - 암호화 입출력: 4바이트 단위(word) 처리 (byte2word/word2byte 변환)
-*
-* 3. 메모리 사용 (Memory Usage per Chunk)
-*    - 원본 데이터 버퍼: CHUNK_SIZE (64MB)
-*    - 정수 변환 버퍼: ((CHUNK_SIZE + 31) & ~31) + 64) * 2 (입력/출력용)
-*    - 추가 메모리: salt(32B), nonce(16B), key(32B) 등
-*
-* 4. 파일 구조 (Encrypted File Structure)
-*    - 헤더: salt(32B) + CTR nonce(16B) = 48B
-*    - 데이터: 암호화된 원본 데이터
-*
-* 5. 키/Salt/CTR 관리 구조 (Key/Salt/CTR Management)
-*    - 키 생성: PBKDF2-HMAC-SHA256(password, salt, 100000회)로 32바이트 DEK 생성
-*    - Salt 관리: 파일별 32바이트 랜덤 salt 생성, 파일 헤더에 저장
-*    - CTR Nonce: 파일별 16바이트 랜덤 nonce 생성, 파일 헤더에 저장
-*    - 메모리 보안: 키 관련 메모리는 사용 후 secure_zero_memory()로 안전하게 삭제
-*/
 
 #include <stdio.h>
 #include <stdlib.h>
